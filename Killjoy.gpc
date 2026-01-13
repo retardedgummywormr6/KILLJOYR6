@@ -1,92 +1,80 @@
 /*
  ==============================================================================
- |                  KIMBOS KILLJOY - ULTIMATE OLED EDITION                    |
- ==============================================================================
- |  TOGGLE MENU: Hold L2/LT + Press OPTIONS/MENU                              |
- |  NAVIGATE:    D-Pad LEFT / RIGHT                                           |
- |  ADJUST:      A / CROSS to Toggle ON/OFF                                   |
- |  EXIT:        B / CIRCLE                                                   |
+ |                  KIMBOS KILLJOY - FIXED OLED EDITION                      |
  ==============================================================================
 */
 
-// --- BUTTON LAYOUT (UNIVERSAL) ---
+// --- DATA SEGMENT (This fixes your error) ---
+// Each string is assigned an index starting from 0
+data {
+    "Kimbos";      // Index 0
+    "KILLJOY";     // Index 1
+    "RAPID FIRE";  // Index 2
+    "ANTI RECOIL"; // Index 3
+    "AIM ASSIST";  // Index 4
+    "DROP SHOT";   // Index 5
+    "MAIN MENU";   // Index 6
+    "ON";          // Index 7
+    "OFF";         // Index 8
+}
+
+// --- BUTTON LAYOUT ---
 define FIRE_BTN   = XB1_RT;
 define ADS_BTN    = XB1_LT;
-define TACTICAL   = XB1_LB;
-define LETHAL     = XB1_RB;
 define JUMP       = XB1_A;
 define CROUCH     = XB1_B;
-define RELOAD     = XB1_X;
-define SWITCH     = XB1_Y;
-define UP         = XB1_UP;
-define DOWN       = XB1_DOWN;
 define LEFT       = XB1_LEFT;
 define RIGHT      = XB1_RIGHT;
-define MENU_BTN   = XB1_MENU; // Options on PS
-define HOME_BTN   = XB1_XBOX;
+define MENU_BTN   = XB1_MENU;
 
-// --- VARIABLES & CONFIGURATION ---
+// --- VARIABLES ---
 int menu_active   = 0;
 int menu_index    = 0;
-int intro_timer   = 0;
-int screensaver   = 0;
+int intro_timer   = 2000; 
 
-// -- MOD VARIABLES (The things you are toggling) --
-int mod_rapidfire = 0; // 0 = OFF, 1 = ON
+// -- MOD TOGGLES --
+int mod_rapidfire = 0; 
 int mod_antirecoil= 0;
 int mod_aimassist = 0;
 int mod_dropshot  = 0;
 
-// -- MENU CONSTANTS --
-define TOTAL_MODS = 4; // Total number of pages in the menu
-
-// --- STRING CONSTANTS FOR OLED ---
-// Used to center text. Screen is 128px wide. 
-// Standard font is approx 7px wide, Large is approx 11px.
-
-init {
-    // Show intro immediately upon loading script
-    cls_oled(0);
-    intro_timer = 2000; // Display intro for 2000ms (2 seconds)
-}
+define TOTAL_MODS = 4;
 
 main {
     // --- INTRO SEQUENCE ---
     if (intro_timer > 0) {
         intro_timer = intro_timer - get_rtime();
-        OLED_Intro();
+        cls_oled(0);
+        rect_oled(0, 0, 127, 63, 0, 1); 
+        printf(30, 20, OLED_FONT_MEDIUM, 1, 0); // Calls "Kimbos"
+        printf(25, 40, OLED_FONT_LARGE, 1, 1);  // Calls "KILLJOY"
     }
     else {
-        
-        // --- MENU TOGGLE LOGIC (LT + MENU) ---
+        // --- MENU TOGGLE (LT + MENU) ---
         if (get_val(ADS_BTN) && event_press(MENU_BTN)) {
             menu_active = !menu_active;
-            if(!menu_active) cls_oled(0); // Clear screen on exit
+            if(!menu_active) cls_oled(0);
         }
 
         if (menu_active) {
-            // --- MENU NAVIGATION ---
-            
-            // Block Game Inputs so you don't jump/shoot while in menu
+            // Block Game Inputs
             set_val(FIRE_BTN, 0); set_val(ADS_BTN, 0); 
             set_val(JUMP, 0); set_val(CROUCH, 0); 
-            set_val(UP, 0); set_val(DOWN, 0); set_val(LEFT, 0); set_val(RIGHT, 0);
 
-            // Scroll Right
+            // Navigation
             if (event_press(RIGHT)) {
-                menu_index = menu_index + 1;
-                if (menu_index >= TOTAL_MODS) menu_index = 0;
+                menu_index = (menu_index + 1) % TOTAL_MODS;
             }
-            
-            // Scroll Left
             if (event_press(LEFT)) {
-                menu_index = menu_index - 1;
-                if (menu_index < 0) menu_index = TOTAL_MODS - 1;
+                menu_index = (menu_index + TOTAL_MODS - 1) % TOTAL_MODS;
             }
 
             // Toggle / Edit (A / Cross)
             if (event_press(JUMP)) {
-                Toggle_Mod_Value();
+                if (menu_index == 0) mod_rapidfire = !mod_rapidfire;
+                if (menu_index == 1) mod_antirecoil = !mod_antirecoil;
+                if (menu_index == 2) mod_aimassist = !mod_aimassist;
+                if (menu_index == 3) mod_dropshot = !mod_dropshot;
             }
 
             // Dismiss (B / Circle)
@@ -95,40 +83,42 @@ main {
                 cls_oled(0);
             }
 
-            // Draw the Menu
-            OLED_Menu_System();
+            DrawMenu();
 
         } else {
-            // --- MAIN GAMEPLAY LOOP (When Menu is Closed) ---
-            
-            // Screen Saver (Black screen when playing to save battery/screen)
-            cls_oled(0);
-
-            // 1. Rapid Fire Logic
-            if (mod_rapidfire && get_val(FIRE_BTN)) {
-                combo_run(cRapidFire);
-            }
-
-            // 2. Drop Shot Logic
-            if (mod_dropshot && get_val(FIRE_BTN)) {
-                combo_run(cDropShot);
-            }
-
-            // 3. Aim Assist (Shake)
-            if (mod_aimassist && get_val(ADS_BTN)) {
-                combo_run(cAimAssist);
-            }
-
-            // 4. Anti Recoil
-            if (mod_antirecoil && get_val(FIRE_BTN)) {
-                // Simple pull down logic
-                set_val(XB1_RY, get_val(XB1_RY) + 20); 
-            }
+            // Gameplay Mods
+            cls_oled(0); 
+            if (mod_rapidfire && get_val(FIRE_BTN)) combo_run(cRapidFire);
+            if (mod_aimassist && get_val(ADS_BTN))  combo_run(cAimAssist);
+            if (mod_antirecoil && get_val(FIRE_BTN)) set_val(XB1_RY, get_val(XB1_RY) + 20);
         }
     }
 }
 
-// --- COMBOS ---
+function DrawMenu() {
+    cls_oled(0);
+    
+    // Header
+    rect_oled(0, 0, 128, 15, 1, 1);
+    printf(35, 3, OLED_FONT_SMALL, 0, 6); // "MAIN MENU"
+
+    // Arrows
+    printf(5, 30, OLED_FONT_MEDIUM, 1, 0); // Using small helper or static text
+
+    // Display Mod Name based on index
+    // Note: Strings 2, 3, 4, 5 are the names
+    printf(20, 25, OLED_FONT_MEDIUM, 1, menu_index + 2);
+
+    // Status ON/OFF
+    int status;
+    if (menu_index == 0) status = mod_rapidfire;
+    if (menu_index == 1) status = mod_antirecoil;
+    if (menu_index == 2) status = mod_aimassist;
+    if (menu_index == 3) status = mod_dropshot;
+
+    if (status) printf(45, 48, OLED_FONT_LARGE, 1, 7); // "ON"
+    else        printf(40, 48, OLED_FONT_LARGE, 1, 8); // "OFF"
+}
 
 combo cRapidFire {
     set_val(FIRE_BTN, 100);
@@ -137,81 +127,9 @@ combo cRapidFire {
     wait(30);
 }
 
-combo cDropShot {
-    set_val(CROUCH, 100);
-    wait(500); // Hold crouch to drop
-}
-
 combo cAimAssist {
     set_val(XB1_RX, 20);
     wait(20);
     set_val(XB1_RX, -20);
     wait(20);
-}
-
-// --- FUNCTIONS ---
-
-function Toggle_Mod_Value() {
-    if (menu_index == 0) mod_rapidfire = !mod_rapidfire;
-    if (menu_index == 1) mod_antirecoil = !mod_antirecoil;
-    if (menu_index == 2) mod_aimassist = !mod_aimassist;
-    if (menu_index == 3) mod_dropshot = !mod_dropshot;
-}
-
-// --- OLED DISPLAY FUNCTIONS ---
-
-function OLED_Intro() {
-    cls_oled(0);
-    // Draw a box frame
-    rect_oled(0, 0, 127, 63, 0, 1); 
-    
-    // Centering Text: (Screen Width / 2) - (Text Length * Approx Width / 2)
-    printf(30, 20, OLED_FONT_MEDIUM, 1, "Kimbos");
-    printf(25, 40, OLED_FONT_LARGE, 1, "KILLJOY");
-}
-
-function OLED_Menu_System() {
-    cls_oled(0);
-    
-    // Top Bar
-    rect_oled(0, 0, 128, 15, 1, 1); // Solid top bar
-    printf(35, 3, OLED_FONT_SMALL, 0, "MAIN MENU"); // Inverted text
-
-    // Menu Navigation Indicators
-    printf(5, 30, OLED_FONT_MEDIUM, 1, "<");
-    printf(115, 30, OLED_FONT_MEDIUM, 1, ">");
-
-    // Display Current Mod Name
-    if (menu_index == 0) CenterText(25, "RAPID FIRE");
-    if (menu_index == 1) CenterText(25, "ANTI RECOIL");
-    if (menu_index == 2) CenterText(25, "AIM ASSIST");
-    if (menu_index == 3) CenterText(25, "DROP SHOT");
-
-    // Display Current Status (ON/OFF)
-    int status;
-    if (menu_index == 0) status = mod_rapidfire;
-    if (menu_index == 1) status = mod_antirecoil;
-    if (menu_index == 2) status = mod_aimassist;
-    if (menu_index == 3) status = mod_dropshot;
-
-    if (status) {
-        printf(45, 48, OLED_FONT_LARGE, 1, "ON");
-        // Draw a small indicator box
-        rect_oled(38, 50, 5, 5, 1, 1); 
-    } else {
-        printf(40, 48, OLED_FONT_LARGE, 1, "OFF");
-        // Draw an empty box
-        rect_oled(33, 50, 5, 5, 0, 1); 
-    }
-    
-    // Page Number Bottom Right
-    // printf(110, 55, OLED_FONT_SMALL, 1, "%d", menu_index + 1);
-}
-
-// Helper to center text roughly on the X axis
-function CenterText(y_pos, string_text) {
-    // This is a rough estimation for centering based on medium font
-    // GPC doesn't have a native 'measure string' function easily available
-    // so we assume standard width.
-    printf(20, y_pos, OLED_FONT_MEDIUM, 1, string_text);
 }
